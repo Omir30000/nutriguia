@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth } from '../firebase';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -18,7 +18,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Sintaxe Compat
-    const unsubscribe = auth.onAuthStateChanged((currentUser: User | null) => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });

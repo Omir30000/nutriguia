@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Loading from '../components/Loading';
-import { gerarPlanoNutricional } from '../services/aiService';
+import { gerarPlanoComGroq } from '../services/groqApi';
 import { AnamneseData } from '../types';
 
 const Anamnese: React.FC = () => {
@@ -19,7 +18,7 @@ const Anamnese: React.FC = () => {
     altura: '',
     genero: 'Masculino',
     objetivo: 'Perder peso',
-    tempoObjetivo: '', // Novo campo obrigatório
+    tempoObjetivo: '',
     nivelAtividade: 'Sedentário',
     restricoes: '',
     preferencias: ''
@@ -41,19 +40,23 @@ const Anamnese: React.FC = () => {
 
     setLoading(true);
     try {
-      // 1. Salvar Anamnese (Compat)
+      // Salvar dados da Anamnese
       await db.collection('users').doc(user.uid).set({ anamnese: formData }, { merge: true });
 
-      // 2. Gerar Plano via Google GenAI (Gemini)
-      const dietPlanResult = await gerarPlanoNutricional(formData);
+      // Gerar Plano
+      const planoGerado = await gerarPlanoComGroq(formData);
 
-      // 3. Salvar Resultado (Compat)
-      await db.collection('users').doc(user.uid).collection('plano').doc('gerado').set(dietPlanResult);
+      // Salvar Plano (Garantindo que 'conteudo' e JSON estruturado sejam salvos)
+      await db.collection('users').doc(user.uid).collection('plano').doc('gerado').set({
+        ...planoGerado,
+        uid: user.uid,
+        updatedAt: new Date().toISOString()
+      });
 
       navigate('/lista-compras');
     } catch (error) {
-      console.error("Erro ao processar:", error);
-      alert("Ocorreu um erro ao gerar seu plano. Verifique sua conexão.");
+      console.error("Erro no fluxo de anamnese:", error);
+      alert("Ocorreu um erro ao gerar seu plano. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -62,28 +65,25 @@ const Anamnese: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      {loading && <Loading message="Analisando seu perfil e gerando estratégias com Gemini..." />}
+      {loading && <Loading message="A IA está montando sua dieta..." />}
       
       <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow rounded-lg p-6">
           <div className="border-b border-gray-200 pb-5 mb-5">
-            <h3 className="text-2xl font-bold leading-6 text-gray-900">Nova Anamnese</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              Preencha seus dados para que a IA possa calcular sua dieta ideal.
-            </p>
+            <h3 className="text-2xl font-bold leading-6 text-gray-900">Anamnese Nutricional</h3>
+            <p className="mt-2 text-sm text-gray-500">Inteligência Artificial personalizada para seu biotipo.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* Campos Básicos */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Idade</label>
-                <input required type="number" name="idade" value={formData.idade} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                <input required type="number" name="idade" value={formData.idade} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Gênero</label>
-                <select name="genero" value={formData.genero} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                <select name="genero" value={formData.genero} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
                   <option>Masculino</option>
                   <option>Feminino</option>
                   <option>Outro</option>
@@ -91,79 +91,55 @@ const Anamnese: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Peso (kg)</label>
-                <input required type="number" step="0.1" name="peso" value={formData.peso} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                <input required type="number" step="0.1" name="peso" value={formData.peso} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Altura (cm)</label>
-                <input required type="number" name="altura" value={formData.altura} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                <input required type="number" name="altura" value={formData.altura} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
               </div>
 
-              {/* Objetivos (Novos Campos) */}
               <div className="md:col-span-2 bg-emerald-50 p-4 rounded-md border border-emerald-100">
-                <h4 className="text-emerald-800 font-medium mb-3">Definição de Metas</h4>
+                <h4 className="text-emerald-800 font-medium mb-3">Seus Objetivos</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-emerald-900">Objetivo Principal</label>
-                    <select
-                      required
-                      name="objetivo"
-                      value={formData.objetivo}
-                      onChange={handleChange}
-                      className="mt-1 block w-full border border-emerald-300 rounded-md shadow-sm p-2 bg-white"
-                    >
+                    <select required name="objetivo" value={formData.objetivo} onChange={handleChange} className="mt-1 block w-full border-emerald-300 rounded-md shadow-sm p-2 bg-white border">
                       <option value="Perder peso">Perder peso</option>
                       <option value="Ganhar massa muscular">Ganhar massa muscular</option>
                       <option value="Manter peso">Manter peso</option>
                       <option value="Definição corporal">Definição corporal</option>
                       <option value="Reeducação alimentar">Reeducação alimentar</option>
-                      <option value="Aumentar energia e disposição">Aumentar energia e disposição</option>
-                      <option value="Melhora geral da saúde">Melhora geral da saúde</option>
+                      <option value="Aumentar energia">Aumentar energia e disposição</option>
+                      <option value="Saúde geral">Melhora geral da saúde</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-emerald-900">Prazo Desejado</label>
-                    <input 
-                      required 
-                      type="text" 
-                      name="tempoObjetivo" 
-                      placeholder="Ex: 8 semanas" 
-                      value={formData.tempoObjetivo} 
-                      onChange={handleChange} 
-                      className="mt-1 block w-full border border-emerald-300 rounded-md shadow-sm p-2" 
-                    />
+                    <label className="block text-sm font-medium text-emerald-900">Prazo da Meta</label>
+                    <input required type="text" name="tempoObjetivo" placeholder="Ex: 3 meses" value={formData.tempoObjetivo} onChange={handleChange} className="mt-1 block w-full border-emerald-300 rounded-md shadow-sm p-2 border" />
                   </div>
                 </div>
               </div>
 
-              {/* Atividade e Restrições */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Nível de Atividade</label>
-                <select name="nivelAtividade" value={formData.nivelAtividade} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                  <option>Sedentário</option>
-                  <option>Levemente Ativo</option>
-                  <option>Moderadamente Ativo</option>
-                  <option>Muito Ativo</option>
+                <select name="nivelAtividade" value={formData.nivelAtividade} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border">
+                  <option>Sedentário (Pouco ou nenhum exercício)</option>
+                  <option>Levemente Ativo (Exercício 1-3 dias/semana)</option>
+                  <option>Moderadamente Ativo (Exercício 3-5 dias/semana)</option>
+                  <option>Muito Ativo (Exercício 6-7 dias/semana)</option>
                   <option>Atleta Profissional</option>
                 </select>
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Restrições / Alergias</label>
-                <textarea name="restricoes" rows={2} value={formData.restricoes} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="Ex: Intolerância à lactose..." />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700">Preferências Alimentares</label>
-                <textarea name="preferencias" rows={2} value={formData.preferencias} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="Ex: Prefiro peixe a carne vermelha..." />
+                <textarea name="restricoes" rows={2} value={formData.restricoes} onChange={handleChange} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Ex: Não como carne de porco, sou intolerante a lactose..." />
               </div>
             </div>
 
             <div className="pt-5">
-              <button
-                type="submit"
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-              >
-                Gerar Plano Personalizado
+              <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+                Gerar Plano com IA
               </button>
             </div>
           </form>

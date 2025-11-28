@@ -39,6 +39,7 @@ export interface DietPlan {
   lista_compras_semana: IngredienteItem[];
   receitas_semana: Receita[];
   observacoes?: string;
+  conteudo?: string; // Campo para armazenar o texto bruto da resposta da IA
   
   // Metadados
   geradoEm?: string;

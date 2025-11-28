@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Loading from '../components/Loading';
-import { Download, ShoppingCart, FileText, Printer, CheckSquare, AlertCircle } from 'lucide-react';
+import { Download, ShoppingCart, FileText, Printer, CheckSquare, AlertCircle, FileCode } from 'lucide-react';
 import { DietPlan } from '../types';
 
 const ListaCompras: React.FC = () => {
@@ -106,9 +106,9 @@ const ListaCompras: React.FC = () => {
               </div>
             </div>
 
-            {/* Tabela de Compras */}
+            {/* Tabela de Compras (Estruturada) */}
             {dietPlan.lista_compras_semana?.length > 0 ? (
-              <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -133,11 +133,28 @@ const ListaCompras: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            ) : (
-              <div className="text-center py-10 bg-white rounded shadow">
-                <p>Lista vazia ou formato inválido.</p>
+            ) : null}
+
+            {/* Visualização do Conteúdo Bruto (Solicitado para Debug/Fallback) */}
+            {dietPlan.conteudo && (
+              <div className="bg-white shadow rounded-lg p-6 border border-gray-200 mt-6" id="planoGerado">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                  <FileCode className="w-5 h-5 mr-2 text-gray-500" />
+                  Plano Detalhado (Gerado pela IA)
+                </h3>
+                <div 
+                  className="prose prose-sm max-w-none text-gray-700 bg-gray-50 p-4 rounded whitespace-pre-wrap font-mono text-xs md:text-sm overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: dietPlan.conteudo.replace(/\n/g, '<br>') }}
+                />
               </div>
             )}
+            
+            {!dietPlan.lista_compras_semana?.length && !dietPlan.conteudo && (
+              <div className="text-center py-10 bg-white rounded shadow">
+                <p>Nenhuma lista gerada. Tente criar um novo plano.</p>
+              </div>
+            )}
+
           </>
         ) : (
           <div className="text-center py-20">

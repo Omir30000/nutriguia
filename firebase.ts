@@ -14,8 +14,8 @@ const firebaseConfig = {
 };
 
 // Inicializa o Firebase (Compat)
-// Acessando .default para garantir compatibilidade com import * as
-const app = (firebase as any).default.initializeApp(firebaseConfig);
+// Using 'as any' to handle potential default export differences in strict TS environments
+const app = ((firebase as any).default || firebase).initializeApp(firebaseConfig);
 export const auth = app.auth();
 export const db = app.firestore();
 

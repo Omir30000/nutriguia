@@ -1,5 +1,5 @@
 
-import firebase from "firebase/compat/app";
+import * as firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
 
@@ -14,7 +14,8 @@ const firebaseConfig = {
 };
 
 // Inicializa o Firebase (Compat)
-const app = firebase.initializeApp(firebaseConfig);
+// Acessando .default para garantir compatibilidade com import * as
+const app = (firebase as any).default.initializeApp(firebaseConfig);
 export const auth = app.auth();
 export const db = app.firestore();
 

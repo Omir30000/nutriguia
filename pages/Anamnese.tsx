@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import Loading from '../components/Loading';
-import { gerarPlanoComGroq } from '../services/groqApi';
+import { gerarPlanoNutricional } from '../services/aiService';
 import { AnamneseData } from '../types';
 
 const Anamnese: React.FC = () => {
@@ -18,7 +18,7 @@ const Anamnese: React.FC = () => {
     peso: '',
     altura: '',
     genero: 'Masculino',
-    objetivo: 'Emagrecimento',
+    objetivo: 'Perder peso',
     tempoObjetivo: '', // Novo campo obrigatório
     nivelAtividade: 'Sedentário',
     restricoes: '',
@@ -44,8 +44,8 @@ const Anamnese: React.FC = () => {
       // 1. Salvar Anamnese (Compat)
       await db.collection('users').doc(user.uid).set({ anamnese: formData }, { merge: true });
 
-      // 2. Gerar Plano via Groq
-      const dietPlanResult = await gerarPlanoComGroq(formData);
+      // 2. Gerar Plano via Google GenAI (Gemini)
+      const dietPlanResult = await gerarPlanoNutricional(formData);
 
       // 3. Salvar Resultado (Compat)
       await db.collection('users').doc(user.uid).collection('plano').doc('gerado').set(dietPlanResult);
@@ -62,7 +62,7 @@ const Anamnese: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      {loading && <Loading message="Analisando seu perfil e gerando estratégias com Llama 3.1..." />}
+      {loading && <Loading message="Analisando seu perfil e gerando estratégias com Gemini..." />}
       
       <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow rounded-lg p-6">
@@ -104,15 +104,21 @@ const Anamnese: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-emerald-900">Objetivo Principal</label>
-                    <input 
-                      required 
-                      type="text" 
-                      name="objetivo" 
-                      placeholder="Ex: Perder 5kg de gordura" 
-                      value={formData.objetivo} 
-                      onChange={handleChange} 
-                      className="mt-1 block w-full border border-emerald-300 rounded-md shadow-sm p-2" 
-                    />
+                    <select
+                      required
+                      name="objetivo"
+                      value={formData.objetivo}
+                      onChange={handleChange}
+                      className="mt-1 block w-full border border-emerald-300 rounded-md shadow-sm p-2 bg-white"
+                    >
+                      <option value="Perder peso">Perder peso</option>
+                      <option value="Ganhar massa muscular">Ganhar massa muscular</option>
+                      <option value="Manter peso">Manter peso</option>
+                      <option value="Definição corporal">Definição corporal</option>
+                      <option value="Reeducação alimentar">Reeducação alimentar</option>
+                      <option value="Aumentar energia e disposição">Aumentar energia e disposição</option>
+                      <option value="Melhora geral da saúde">Melhora geral da saúde</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-emerald-900">Prazo Desejado</label>
